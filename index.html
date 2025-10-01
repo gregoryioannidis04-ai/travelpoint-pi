@@ -1,75 +1,98 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>TravelPoint Pi</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>TravelPoint Pi · Sandbox</title>
   <script src="https://sdk.minepi.com/pi-sdk.js"></script>
+  <style>
+    body { font-family: system-ui, Arial, sans-serif; max-width: 720px; margin: 40px auto; line-height: 1.5; padding: 0 16px; }
+    h1 { margin: 0 0 8px; }
+    #status { padding: 10px; background: #f6f7fb; border: 1px solid #e3e5ef; border-radius: 10px; margin: 16px 0; }
+    button { padding: 10px 14px; margin: 6px 8px 6px 0; border-radius: 8px; border: 1px solid #d0d4e1; cursor: pointer; }
+    button:disabled { opacity: .5; cursor: not-allowed; }
+    code { background:#f1f3f8; padding:2px 6px; border-radius:6px; }
+  </style>
 </head>
 <body>
-  <h1>🚀 Welcome to TravelPoint Pi</h1>
-  <p>This is the first test deployment of our Pi Hackathon project.</p>
+  <h1>🚀 TravelPoint Pi (Sandbox)</h1>
+  <p>Demo для Pi Hackathon: авторизация и тестовый платёж через Pi SDK.</p>
 
-  <button id="loginBtn">🔑 Login with Pi</button>
+  <div id="status">Инициализация…</div>
+
+  <button id="loginBtn" disabled>🔑 Login with Pi</button>
   <button id="payBtn" disabled>💳 Pay 1 Pi (Test)</button>
 
-  <script>
-    // 1. Инициализация SDK
-    Pi.init({ version: "2.0" });
-    console.log("Pi SDK initialized");
+  <p style="font-size:14px;color:#555">
+    Если кнопки неактивны: откройте страницу в <strong>Pi Browser</strong> и убедитесь, что в
+    <em>Develop → Configure App’s Development URL</em> добавлен ваш URL.
+  </p>
 
+  <script>
+    // --- 1) ИНИЦИАЛИЗАЦИЯ SDK В ПЕСОЧНИЦЕ ---
+    try {
+      // sandbox: true — ОБЯЗАТЕЛЕН для шага "Run Development App in the Sandbox"
+      Pi.init({ version: "2.0", sandbox: true });
+    } catch (_) {}
+
+    const statusEl = document.getElementById('status');
+    const loginBtn = document.getElementById('loginBtn');
+    const payBtn   = document.getElementById('payBtn');
     let user = null;
 
-    // 2. Авторизация пользователя
-    document.getElementById("loginBtn").addEventListener("click", async () => {
-      try {
-        user = await Pi.authenticate(["username", "payments"], onIncompletePaymentFound);
-        console.log("Authenticated user:", user);
-        alert("✅ Logged in as " + user.username);
-        document.getElementById("payBtn").disabled = false;
-      } catch (err) {
-        console.error(err);
-        alert("❌ Login failed");
-      }
-    });
+    const isPiEnv = () =>
+      typeof Pi !== 'undefined' && Pi && typeof Pi.authenticate === 'function';
 
-    // 3. Платёж
-    document.getElementById("payBtn").addEventListener("click", async () => {
-      try {
-        const paymentData = {
-          amount: 1, // Сколько Pi
-          memo: "Test payment for TravelPoint", // Комментарий
-          metadata: { type: "test" } // Любые данные
-        };
+    function setStatus(msg){ statusEl.textContent = msg; }
 
-        const payment = await Pi.createPayment(paymentData, {
-          onReadyForServerApproval: (paymentId) => {
-            console.log("Ready for server approval:", paymentId);
-          },
-          onReadyForServerCompletion: (paymentId, txid) => {
-            console.log("Ready for server completion:", paymentId, txid);
-          },
-          onCancel: (paymentId) => {
-            console.log("Payment cancelled:", paymentId);
-          },
-          onError: (error, paymentId) => {
-            console.error("Payment error:", error, paymentId);
-          }
-        });
-
-        console.log("Payment created:", payment);
-        alert("✅ Payment successful (check console)");
-
-      } catch (err) {
-        console.error(err);
-        alert("❌ Payment failed");
-      }
-    });
-
-    // 4. Неполные платежи
-    function onIncompletePaymentFound(payment) {
-      console.log("Incomplete payment found:", payment);
+    if (!isPiEnv()) {
+      setStatus("⚠️ Откройте эту страницу в Pi Browser. Также убедитесь, что ваш Vercel-URL добавлен в Develop → Configure App’s Development URL.");
+    } else {
+      setStatus("✅ Pi SDK обнаружен. Нажмите “Login with Pi”.");
+      loginBtn.disabled = false;
     }
+
+    // --- 2) ОБРАБОТЧИК НЕЗАВЕРШЁННЫХ ПЛАТЕЖЕЙ ---
+    function onIncompletePaymentFound(payment){
+      console.log("Incomplete payment:", payment);
+    }
+
+    // --- 3) ЛОГИН ---
+    loginBtn.addEventListener('click', async () => {
+      if (!isPiEnv()) {
+        alert("Откройте в Pi Browser и добавьте URL в Pi Develop.");
+        return;
+      }
+      try {
+        user = await Pi.authenticate(["username","payments"], onIncompletePaymentFound);
+        setStatus("✅ Вошли как @" + user.username);
+        payBtn.disabled = false;
+      } catch (e) {
+        console.error(e);
+        setStatus("❌ Login failed. Проверьте Pi Browser, sandbox и allowlist URL.");
+      }
+    });
+
+    // --- 4) ТЕСТОВЫЙ ПЛАТЁЖ ---
+    payBtn.addEventListener('click', async () => {
+      if (!user) return alert("Сначала выполните вход.");
+      try {
+        const payment = await Pi.createPayment(
+          { amount: 1, memo: "Test payment for TravelPoint", metadata: {type:"test"} },
+          {
+            onReadyForServerApproval: (pid)=>console.log("onReadyForServerApproval", pid),
+            onReadyForServerCompletion: (pid, txid)=>console.log("onReadyForServerCompletion", pid, txid),
+            onCancel: (pid)=>console.log("onCancel", pid),
+            onError: (err, pid)=>console.log("onError", err, pid)
+          }
+        );
+        console.log("Payment created:", payment);
+        setStatus("✅ Платёж инициирован. Смотрите модальное окно Pi Wallet.");
+      } catch (e) {
+        console.error(e);
+        setStatus("❌ Payment failed. Смотрите консоль Pi Browser.");
+      }
+    });
   </script>
 </body>
 </html>
