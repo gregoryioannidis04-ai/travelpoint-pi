@@ -16,41 +16,85 @@
   <button onclick="login()">🔑 Login with Pi</button>
   <button onclick="pay()">💳 Pay 1 Pi (Test)</button>
 
-  <script>
-  // Initialize Pi SDK
-Pi.init({ version: "2.0", sandbox: true });
+ <script>
+  // ВАЖНО: sandbox true
+  Pi.init({ version: "2.0", sandbox: true });
 
-    async function login() {
-      try {
-        const scopes = ['username', 'payments'];
-        const authResult = await Pi.authenticate(scopes, onIncompletePaymentFound);
-        alert("Logged in as: " + authResult.user.username);
-      } catch (err) {
-        console.error(err);
-        alert("Login failed");
-      }
+  function showErr(err, where) {
+    const msg = (err && (err.message  err.error  err.code)) ? (err.message  err.error  err.code) : JSON.stringify(err);
+    alert(${where} error:\n${msg});
+    console.error(where, err);
+  }
+
+  async function login() {
+    try {
+      const scopes = ['username', 'payments'];
+      const authResult = await Pi.authenticate(scopes, onIncompletePaymentFound);
+      alert("Logged in as: " + authResult.user.username);
+      window.__piUser = authResult.user; // сохраним для наглядности
+    } catch (err) {
+      showErr(err, 'Login');
     }
+  }
 
-    async function pay() {
-      try {
-        const payment = await Pi.createPayment({
-          amount: 1,
-          memo: "Test Payment",
-          metadata: { project: "TravelPointPi" }
-        }, { onReadyForServerApproval, onReadyForServerCompletion, onCancel, onError });
-
-        alert("Payment created: " + payment.identifier);
-      } catch (err) {
-        console.error(err);
-        alert("Payment failed");
+  async function pay() {
+    try {
+      // Проверим, залогинен ли пользователь
+      if (!window.__piUser) {
+        alert("Please login first (press 'Login with Pi').");
+        return;
       }
-    }
 
-    function onIncompletePaymentFound(payment) { console.log(payment); }
-    function onReadyForServerApproval(paymentId) { console.log("Approve: ", paymentId); }
-    function onReadyForServerCompletion(paymentId, txid) { console.log("Complete: ", paymentId, txid); }
-    function onCancel(paymentId) { console.log("Cancelled: ", paymentId); }
-    function onError(error, payment) { console.error(error, payment); }
-  </script>
+      const payment = await Pi.createPayment({
+        amount: 1,
+        memo: "TravelPoint test payment",
+        metadata: { orderId: Date.now() }
+      }, {
+        onReadyForServerApproval: async (paymentId) => {
+          try {
+            const res = await fetch('/api/approve', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ paymentId })
+            });
+            const body = await res.json();
+            if (!res.ok) throw body;
+            alert('Server approved: ' + paymentId);
+          } catch (err) {
+            showErr(err, 'Server approval (/api/approve)');
+          }
+        },
+        onReadyForServerCompletion: async (paymentId, txid) => {
+          try {
+            const res = await fetch('/api/complete', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ paymentId, txid })
+            });
+            const body = await res.json();
+            if (!res.ok) throw body;
+            alert('Server completed: ' + paymentId);
+          } catch (err) {
+            showErr(err, 'Server completion (/api/complete)');
+          }
+        },
+        onCancel: (paymentId) => {
+          alert('Canceled: ' + paymentId);
+        },
+        onError: (err, paymentId) => {
+          showErr(err, 'Payment');
+        }
+      });
+
+      console.log('Payment object:', payment);
+    } catch (err) {
+      showErr(err, 'CreatePayment');
+    }
+  }
+
+  function onIncompletePaymentFound(payment) {
+    console.log('Incomplete payment found:', payment);
+  }
+</script>
 </body>
 </html>
