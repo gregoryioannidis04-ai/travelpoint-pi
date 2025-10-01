@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>TravelPoint Pi</title>
   <script src="https://sdk.minepi.com/pi-sdk.js"></script>
 </head>
@@ -9,10 +10,66 @@
   <h1>🚀 Welcome to TravelPoint Pi</h1>
   <p>This is the first test deployment of our Pi Hackathon project.</p>
 
+  <button id="loginBtn">🔑 Login with Pi</button>
+  <button id="payBtn" disabled>💳 Pay 1 Pi (Test)</button>
+
   <script>
-    // Инициализация Pi SDK
+    // 1. Инициализация SDK
     Pi.init({ version: "2.0" });
     console.log("Pi SDK initialized");
+
+    let user = null;
+
+    // 2. Авторизация пользователя
+    document.getElementById("loginBtn").addEventListener("click", async () => {
+      try {
+        user = await Pi.authenticate(["username", "payments"], onIncompletePaymentFound);
+        console.log("Authenticated user:", user);
+        alert("✅ Logged in as " + user.username);
+        document.getElementById("payBtn").disabled = false;
+      } catch (err) {
+        console.error(err);
+        alert("❌ Login failed");
+      }
+    });
+
+    // 3. Платёж
+    document.getElementById("payBtn").addEventListener("click", async () => {
+      try {
+        const paymentData = {
+          amount: 1, // Сколько Pi
+          memo: "Test payment for TravelPoint", // Комментарий
+          metadata: { type: "test" } // Любые данные
+        };
+
+        const payment = await Pi.createPayment(paymentData, {
+          onReadyForServerApproval: (paymentId) => {
+            console.log("Ready for server approval:", paymentId);
+          },
+          onReadyForServerCompletion: (paymentId, txid) => {
+            console.log("Ready for server completion:", paymentId, txid);
+          },
+          onCancel: (paymentId) => {
+            console.log("Payment cancelled:", paymentId);
+          },
+          onError: (error, paymentId) => {
+            console.error("Payment error:", error, paymentId);
+          }
+        });
+
+        console.log("Payment created:", payment);
+        alert("✅ Payment successful (check console)");
+
+      } catch (err) {
+        console.error(err);
+        alert("❌ Payment failed");
+      }
+    });
+
+    // 4. Неполные платежи
+    function onIncompletePaymentFound(payment) {
+      console.log("Incomplete payment found:", payment);
+    }
   </script>
 </body>
 </html>
