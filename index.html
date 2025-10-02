@@ -3,6 +3,16 @@
 <head>
   <meta charset="UTF-8">
   <script src="https://sdk.minepi.com/pi-sdk.js"></script>
+  <script>
+  document.addEventListener("DOMContentLoaded", function () {
+    if (window.Pi) {
+      Pi.init({ version: "2.0" });
+      console.log("✅ Pi SDK connected");
+    } else {
+      console.error("❌ Pi SDK not found");
+    }
+  });
+</script>
   <title>TravelPoint Pi</title>
   <script src="https://sdk.minepi.com/pi-sdk.js"></script>
   <style>
