@@ -5,88 +5,99 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>TravelPoint Pi</title>
 
-  <!-- Подключаем Pi SDK ОДИН раз -->
+  <!-- Pi SDK -->
   <script src="https://sdk.minepi.com/pi-sdk.js"></script>
 
   <style>
-    body { font-family: Arial, sans-serif; text-align: center; margin-top: 50px; }
+    body { font-family: Arial, sans-serif; text-align: center; margin: 50px 16px; }
     button { padding: 10px 20px; margin: 10px; font-size: 16px; cursor: pointer; }
-    .muted { opacity: 0.6; }
+    .muted { opacity: .6; }
+    #status { margin: 12px 0 24px; font-size: 14px; color: #555; }
   </style>
 </head>
 <body>
   <h1>Welcome to TravelPoint Pi</h1>
   <p>Login and test Pi payments</p>
 
-  <button id="btnLogin" onclick="login()">🔑 Login with Pi</button>
-  <button id="btnPay"   onclick="pay()">💳 Pay 1 Pi (Test)</button>
+  <div id="status">Initializing…</div>
+
+  <button id="btnLogin">🔑 Login with Pi</button>
+  <button id="btnPay">💳 Pay 1 Pi (Test)</button>
 
   <script>
-    // --- Вспомогалки ---
+    // -------- helpers ----------
     function showErr(err, where) {
       const msg = err?.message  err?.error  err?.code || JSON.stringify(err);
       alert(${where} error:\n${msg});
       console.error(where, err);
     }
-
-    function setButtonsEnabled(enabled) {
-      const btnLogin = document.getElementById('btnLogin');
-      const btnPay   = document.getElementById('btnPay');
-      [btnLogin, btnPay].forEach(b => {
-        b.disabled = !enabled;
-        b.classList.toggle('muted', !enabled);
-      });
+    function setButtons(enabled) {
+      const b1 = document.getElementById('btnLogin');
+      const b2 = document.getElementById('btnPay');
+      [b1, b2].forEach(b => { b.disabled = !enabled; b.classList.toggle('muted', !enabled); });
     }
+    const statusEl = document.getElementById('status');
+    function setStatus(t) { statusEl.textContent = t; }
 
-    // Храним текущего пользователя после логина (для наглядности)
+    // Храним юзера после логина для наглядности
     window.__piUser = null;
 
-    // --- Инициализация SDK (sandbox) один раз ---
-    window.addEventListener('load', () => {
-      setButtonsEnabled(false);
-      if (window.Pi) {
-        try {
-          Pi.init({ version: '2.0', sandbox: true });
-          console.log('✅ Pi SDK connected (sandbox mode)');
-          setButtonsEnabled(true);
-        } catch (e) {
-          showErr(e, 'Pi.init');
-        }
-      } else {
-        console.error('❌ Pi SDK not found');
-        alert('Pi SDK not found. Open this page in the Pi Browser.');
+    // -------- init (без inline-обработчиков!) ----------
+    window.addEventListener('DOMContentLoaded', () => {
+      setButtons(false);
+
+      // Вешаем события через JS — так обходим CSP
+      document.getElementById('btnLogin').addEventListener('click', login);
+      document.getElementById('btnPay').addEventListener('click', pay);
+
+      if (!window.Pi) {
+        setStatus('Pi SDK not found. Open this page in the Pi Browser.');
+        alert('Pi SDK not found. Please open in Pi Browser.');
+        return;
+      }
+
+      try {
+        Pi.init({ version: '2.0', sandbox: true });
+        console.log('✅ Pi SDK connected (sandbox)');
+        setStatus('Pi SDK connected (sandbox)');
+        setButtons(true);
+      } catch (e) {
+        showErr(e, 'Pi.init');
+        setStatus('Pi init failed');
       }
     });
 
-    // --- Обработчик незавершённых платежей ---
+    // Для незавершённых платежей
     function onIncompletePaymentFound(payment) {
       console.log('Incomplete payment found:', payment);
-      // Здесь можно дернуть ваш сервер для довершения, если нужно
     }
 
-    // --- ЛОГИН ---
+    // -------- login ----------
     async function login() {
       try {
+        setStatus('Authenticating…');
         const scopes = ['username', 'payments'];
-        const authResult = await Pi.authenticate(scopes, onIncompletePaymentFound);
-        window.__piUser = authResult?.user || null;
+        const auth = await Pi.authenticate(scopes, onIncompletePaymentFound);
+        window.__piUser = auth?.user || null;
         alert('Logged in as: ' + (window.__piUser?.username || 'unknown'));
-        console.log('Auth success:', authResult);
+        console.log('Auth:', auth);
+        setStatus('Logged in');
       } catch (err) {
         showErr(err, 'Login');
+        setStatus('Login failed');
       }
     }
 
-    // --- ПЛАТЁЖ (TESTNET) ---
+    // -------- payment (testnet) ----------
     async function pay() {
       try {
-        // Требуем предварительный логин
         if (!window.__piUser) {
           alert("Please login first (press 'Login with Pi').");
           return;
         }
+        setStatus('Creating payment…');
 
-        const payment = await Pi.createPayment(
+        await Pi.createPayment(
           {
             amount: 1,
             memo: 'TravelPoint test payment',
@@ -103,7 +114,7 @@
                 const body = await res.json().catch(() => ({}));
                 if (!res.ok) throw body;
                 alert('Server approved: ' + paymentId);
-              } catch (err) {
+                } catch (err) {
                 showErr(err, 'Server approval (/api/approve)');
               }
             },
@@ -121,18 +132,15 @@
                 showErr(err, 'Server completion (/api/complete)');
               }
             },
-            onCancel: (paymentId) => {
-              alert('Canceled: ' + paymentId);
-            },
-            onError: (err, paymentId) => {
-              showErr(err, 'Payment');
-            }
+            onCancel: (paymentId) => { alert('Canceled: ' + paymentId); },
+            onError:  (err)       => { showErr(err, 'Payment'); }
           }
         );
 
-        console.log('Payment object:', payment);
+        setStatus('Payment flow finished (see alerts/logs)');
       } catch (err) {
         showErr(err, 'CreatePayment');
+        setStatus('Payment failed');
       }
     }
   </script>
