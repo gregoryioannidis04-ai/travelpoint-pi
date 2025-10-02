@@ -11,8 +11,8 @@
   <style>
     body { font-family: Arial, sans-serif; text-align: center; margin: 50px 16px; }
     button { padding: 10px 20px; margin: 10px; font-size: 16px; cursor: pointer; }
-    .muted { opacity: .6; }
-    #status { margin: 12px 0 24px; font-size: 14px; color: #555; }
+    #status { margin: 12px 0 24px; font-size: 14px; color: #555; white-space: pre-line; }
+    .ok { color:#0a7; } .err { color:#c00; }
   </style>
 </head>
 <body>
@@ -25,77 +25,77 @@
   <button id="btnPay">💳 Pay 1 Pi (Test)</button>
 
   <script>
-    // -------- helpers ----------
+    // Пишем всё на экран, чтобы видеть, где стопор
+    const statusEl = document.getElementById('status');
+    const log = (msg, cls) => {
+      statusEl.className = cls || '';
+      statusEl.textContent = msg;
+    };
+
+    window.onerror = function (msg, src, line, col, err) {
+      log(JS error:\n${msg}\n${src}:${line}:${col}, 'err');
+      return false;
+    };
+
     function showErr(err, where) {
       const msg = err?.message  err?.error  err?.code || JSON.stringify(err);
       alert(${where} error:\n${msg});
       console.error(where, err);
+      log(${where} error:\n${msg}, 'err');
     }
-    function setButtons(enabled) {
-      const b1 = document.getElementById('btnLogin');
-      const b2 = document.getElementById('btnPay');
-      [b1, b2].forEach(b => { b.disabled = !enabled; b.classList.toggle('muted', !enabled); });
-    }
-    const statusEl = document.getElementById('status');
-    function setStatus(t) { statusEl.textContent = t; }
 
-    // Храним юзера после логина для наглядности
     window.__piUser = null;
 
-    // -------- init (без inline-обработчиков!) ----------
-    window.addEventListener('DOMContentLoaded', () => {
-      setButtons(false);
+    // Вешаем обработчики через JS (без inline)
+    document.getElementById('btnLogin').addEventListener('click', login);
+    document.getElementById('btnPay').addEventListener('click', pay);
 
-      // Вешаем события через JS — так обходим CSP
-      document.getElementById('btnLogin').addEventListener('click', login);
-      document.getElementById('btnPay').addEventListener('click', pay);
-
-      if (!window.Pi) {
-        setStatus('Pi SDK not found. Open this page in the Pi Browser.');
-        alert('Pi SDK not found. Please open in Pi Browser.');
-        return;
-      }
-
+    // Инициализация
+    (function init() {
       try {
+        if (!window.Pi) {
+          log('Pi SDK not found.\nOpen this page in the Pi Browser (and enable Sandbox).', 'err');
+          return;
+        }
+        // sandbox: true — для тестовой сети
         Pi.init({ version: '2.0', sandbox: true });
         console.log('✅ Pi SDK connected (sandbox)');
-        setStatus('Pi SDK connected (sandbox)');
-        setButtons(true);
+        log('✅ Pi SDK connected (sandbox)', 'ok');
       } catch (e) {
         showErr(e, 'Pi.init');
-        setStatus('Pi init failed');
       }
-    });
+    })();
 
-    // Для незавершённых платежей
+    // На случай незавершённых платежей
     function onIncompletePaymentFound(payment) {
       console.log('Incomplete payment found:', payment);
     }
 
-    // -------- login ----------
+    // Логин
     async function login() {
       try {
-        setStatus('Authenticating…');
+        if (!window.Pi) { alert('Pi SDK not found. Open in Pi Browser.'); return; }
+        log('Authenticating…');
         const scopes = ['username', 'payments'];
         const auth = await Pi.authenticate(scopes, onIncompletePaymentFound);
         window.__piUser = auth?.user || null;
         alert('Logged in as: ' + (window.__piUser?.username || 'unknown'));
         console.log('Auth:', auth);
-        setStatus('Logged in');
+        log('Logged in', 'ok');
       } catch (err) {
         showErr(err, 'Login');
-        setStatus('Login failed');
       }
     }
 
-    // -------- payment (testnet) ----------
+    // Платёж (testnet)
     async function pay() {
       try {
+        if (!window.Pi) { alert('Pi SDK not found. Open in Pi Browser.'); return; }
         if (!window.__piUser) {
           alert("Please login first (press 'Login with Pi').");
           return;
         }
-        setStatus('Creating payment…');
+        log('Creating payment…');
 
         await Pi.createPayment(
           {
@@ -137,10 +137,9 @@
           }
         );
 
-        setStatus('Payment flow finished (see alerts/logs)');
+        log('Payment flow finished (see alerts/logs)', 'ok');
       } catch (err) {
         showErr(err, 'CreatePayment');
-        setStatus('Payment failed');
       }
     }
   </script>
