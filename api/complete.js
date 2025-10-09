@@ -1,4 +1,4 @@
-// pages/api/complete.js  — CommonJS версия
+// pages/api/complete.js — CommonJS
 module.exports = async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'method_not_allowed' });
@@ -10,17 +10,17 @@ module.exports = async function handler(req, res) {
       return res.status(400).json({ error: 'missing_paymentId' });
     }
 
-    const url = https://api.minepi.com/v3/payments/${paymentId}/complete;
+    const url = https://api.minepi.com/v3/payments/${paymentId}/complete; // <-- БЭКТИКИ!
 
     let r;
     try {
       r = await fetch(url, {
         method: 'POST',
         headers: {
-          'Authorization': Key ${process.env.PI_SERVER_API_KEY},
-          'Content-Type': 'application/json'
+          'Authorization': Key ${process.env.PI_SERVER_API_KEY}, // <-- БЭКТИКИ!
+          'Content-Type': 'application/json',
         },
-        body: JSON.stringify({})
+        body: JSON.stringify({}),
       });
     } catch (err) {
       return res.status(502).json({ error: 'fetch_failed', message: String(err), url });
@@ -28,18 +28,12 @@ module.exports = async function handler(req, res) {
 
     const text = await r.text();
     if (!r.ok) {
-      return res.status(r.status).json({
-        error: 'pi_api_error',
-        status: r.status,
-        url,
-        body: text
-      });
+      return res.status(r.status).json({ error: 'pi_api_error', status: r.status, url, body: text });
     }
 
     let data;
     try { data = JSON.parse(text); } catch { data = { raw: text }; }
     return res.status(200).json({ ok: true, data });
-
   } catch (e) {
     return res.status(500).json({ error: 'server_error', message: String(e) });
   }
