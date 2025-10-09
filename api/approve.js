@@ -1,20 +1,27 @@
-// api/approve.js
+// /api/approve.js
 export default async function handler(req, res) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
+  if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
   try {
-    const { txid, amount } = req.body;
+    const body = typeof req.body === "string" ? JSON.parse(req.body) : req.body;
+    const paymentId = body?.paymentId;
+    if (!paymentId) return res.status(400).json({ error: "Missing paymentId" });
 
-    // Проверка суммы (для теста — 1 Pi)
-    if (amount === 1) {
-      return res.status(200).json({ status: 'success', txid });
-    } else {
-      return res.status(400).json({ status: 'failed', reason: 'Invalid amount' });
-    }
-  } catch (error) {
-    console.error(error);
-    return res.status(500).json({ status: 'error', error: error.message });
+    const r = await fetch(https://api.minepi.com/v2/payments/${paymentId}/approve, {
+      method: "POST",
+      headers: {
+        "Authorization": Key ${process.env.CLIENT_KEY},
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({})
+    });
+
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) return res.status(r.status).json(data);
+
+    return res.status(200).json({ ok: true, data });
+  } catch (err) {
+    console.error("approve error:", err);
+    return res.status(500).json({ error: "Server error" });
   }
 }
