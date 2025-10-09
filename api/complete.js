@@ -10,7 +10,7 @@ module.exports = async function handler(req, res) {
       return res.status(400).json({ error: 'missing_paymentId' });
     }
 
-    const url = https://api.minepi.com/v2/payments/${paymentId}/complete;
+    const url = https://api.minepi.com/v3/payments/${paymentId}/complete;
 
     let r;
     try {
