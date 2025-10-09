@@ -7,18 +7,16 @@ module.exports = async function handler(req, res) {
   try {
     const body = typeof req.body === 'string' ? JSON.parse(req.body  '{}') : (req.body  {});
     const { paymentId } = body;
-    if (!paymentId) {
-      return res.status(400).json({ error: 'missing_paymentId' });
-    }
+    if (!paymentId) return res.status(400).json({ error: 'missing_paymentId' });
 
-    const url = https://api.minepi.com/v3/payments/${paymentId}/complete; // ← БЭКТИКИ!
+    const url = https://api.minepi.com/v3/payments/${paymentId}/complete; // ← бэктики!
 
     let r;
     try {
       r = await fetch(url, {
         method: 'POST',
         headers: {
-          'Authorization': Key ${process.env.PI_SERVER_API_KEY}, // ← БЭКТИКИ!
+          'Authorization': Key ${process.env.PI_SERVER_API_KEY}, // ← бэктики!
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({}),
@@ -28,12 +26,9 @@ module.exports = async function handler(req, res) {
     }
 
     const text = await r.text();
-    if (!r.ok) {
-      return res.status(r.status).json({ error: 'pi_api_error', status: r.status, url, body: text });
-    }
+    if (!r.ok) return res.status(r.status).json({ error: 'pi_api_error', status: r.status, url, body: text });
 
-    let data;
-    try { data = JSON.parse(text); } catch { data = { raw: text }; }
+    let data; try { data = JSON.parse(text); } catch { data = { raw: text }; }
     return res.status(200).json({ ok: true, data });
   } catch (e) {
     return res.status(500).json({ error: 'server_error', message: String(e) });
