@@ -58,7 +58,7 @@
         setStatus("Logged in as @" + auth.user.username);
       } catch (err) {
         console.error(err);
-        setStatus("Login error: " + (err?.message || "Unknown"));
+        setStatus("Login error: " + (err?.message ?? "Unknown"));
       }
     }
 
@@ -107,7 +107,7 @@
           onCancel: (paymentId) => setStatus("Payment canceled."),
           onError: (err, paymentId) => {
             console.error(err);
-            setStatus("Payment error: " + (err?.message || "Unknown"));
+            setStatus("Payment error: " + (err?.message ?? "Unknown"));
           }
         });
 
