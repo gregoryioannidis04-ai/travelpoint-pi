@@ -1,35 +1,29 @@
 export default async function handler(req, res) {
-  if (req.method === "GET") {
-    return res.status(200).json({
-      ok: true,
-      route: "/api/complete",
-      method: "GET",
-      hasEnv: !!process.env.PI_API_KEY,
-    });
-  }
-
   if (req.method === "POST") {
     try {
-      const body = req.body && Object.keys(req.body).length
-        ? req.body
-        : JSON.parse(req.body || "{}");
+      const { paymentId, txid } = req.body || {};
+      if (!paymentId || !txid) {
+        return res.status(400).json({ error: "Missing paymentId or txid" });
+      }
 
-      // Здесь обычно подтверждают перевод в Pi API (complete)
-      return res.status(200).json({
-        ok: true,
-        route: "/api/complete",
+      const response = await fetch(https://api.minepi.com/v2/payments/${paymentId}/complete, {
         method: "POST",
-        received: body || null,
-        note: "stub complete: returned 200",
+        headers: {
+          "Authorization": Key ${process.env.PI_API_KEY},
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ txid }),
       });
-    } catch {
-      return res.status(200).json({
-        ok: true,
-        route: "/api/complete",
-        method: "POST",
-        note: "stub complete with parse fallback",
-      });
+
+      const data = await response.json();
+      return res.status(response.status).json(data);
+    } catch (error) {
+      return res.status(500).json({ error: error.message });
     }
+  }
+
+  if (req.method === "GET") {
+    return res.status(200).json({ ok: true, route: "/api/complete", method: "GET" });
   }
 
   return res.status(405).json({ error: "Method Not Allowed" });
