@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>TravelPoint • Pi Test</title>
+    <!-- Pi SDK -->
+    <script src="https://sdk.minepi.com/pi-sdk.js"></script>
+    <style>
+      body { font-family: system-ui, Arial; padding: 24px; }
+      button { padding: 12px 18px; font-size: 16px; cursor: pointer; }
+      pre { background:#f6f6f6; padding:12px; overflow:auto; margin-top: 20px; }
+    </style>
+  </head>
+  <body>
+    <h1>TravelPoint — Test Payment</h1>
+    <button id="payBtn">Pay with Pi</button>
+    <pre id="log"></pre>
+
+    <script>
+      function logLine(o){ 
+        var el = document.getElementById('log'); 
+        el.textContent += (typeof o==='string'?o:JSON.stringify(o,null,2)) + '\n';
+      }
+
+      // покажем, подхватился ли SDK
+      setTimeout(function(){
+        logLine({ piDefined: !!window.Pi, ua: navigator.userAgent });
+      }, 1200);
+
+      async function postJSON(path, obj) {
+        const r = await fetch(path, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(obj)
+        });
+        const t = await r.text();
+        try { return { status: r.status, data: JSON.parse(t) }; }
+        catch { return { status: r.status, data: t }; }
+      }
+
+      async function startPayment() {
+        if (!window.Pi) { alert('Open in Pi Browser'); return; }
+
+        window.Pi.init({ version: '2.0', sandbox: true });
+
+        try {
+          await window.Pi.createPayment(
+            {
+              amount: 1,
+              memo: 'TravelPoint test payment',
+              metadata: { orderId: 'demo-1' }
+            },
+            {
+              onReadyForServerApproval: async function(paymentId) {
+                logLine({ step: 'approve', paymentId: paymentId });
+                var a = await postJSON('/api/approve', { paymentId: paymentId });
+                logLine({ approve: a });
+              },
+              onReadyForServerCompletion: async function(paymentId) {
+                logLine({ step: 'complete', paymentId: paymentId });
+                var c = await postJSON('/api/complete', { paymentId: paymentId });
+                logLine({ complete: c });
+              },
+              onCancel: function(r){ logLine({ cancel: r }); },
+              onError: function(e){ logLine({ error: String(e) }); }
+            }
+          );
+          logLine('Payment process finished.');
+        } catch (e) {
+          logLine({ caught: String(e) });
+        }
+      }
+
+      document.getElementById('payBtn').addEventListener('click', startPayment);
+    </script>
+  </body>
+</html>
