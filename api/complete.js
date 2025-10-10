@@ -22,7 +22,7 @@ module.exports = async function handler(req, res) {
     const response = await fetch( 'https://api.minepi.com/v2/payments/${paymentId}/complete', {
       method: 'POST',
       headers: {
-         'Authorization': Key ${process.env.PI_API_KEY},
+         Authorization: 'Key ${process.env.PI_API_KEY'},
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({ txid }),
