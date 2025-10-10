@@ -30,7 +30,7 @@ module.exports = async function handler(req, res) {
         method: 'POST',
         headers: {
           // ⬇️⬇️⬇️ здесь тоже backticks ⬇️⬇️⬇️
-          'Authorization': Key ${process.env.PI_SERVER_API_KEY},
+          'Authorization': 'Key ${process.env.PI_SERVER_API_KEY}',
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({})
