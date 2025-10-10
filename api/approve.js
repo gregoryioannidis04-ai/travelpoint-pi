@@ -22,7 +22,7 @@ module.exports = async function handler(req, res) {
     }
 
     // ⬇️⬇️⬇️ ОБРАТНЫЕ КАВЫЧКИ ОБЯЗАТЕЛЬНО ⬇️⬇️⬇️
-    const url =    'https://api.minepi.com/v3/payments/${paymentId}/approve;
+    const url =    'https://api.minepi.com/v3/payments/${paymentId}/approve';
 
     let r;
     try {
