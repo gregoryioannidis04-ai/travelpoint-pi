@@ -1,0 +1,84 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>TPi Debug</title>
+  <script src="https://sdk.minepi.com/pi-sdk.js"></script>
+  <style>
+    body { font-family: system-ui, sans-serif; padding: 16px; }
+    button { padding: 10px 14px; margin: 6px 0; }
+    #log { white-space: pre-wrap; background:#f6f6f6; padding:12px; border-radius:8px; }
+  </style>
+</head>
+<body>
+  <h2>TravelPoint Pi — Debug</h2>
+
+  <button id="login">🔑 Login with Pi</button><br/>
+  <button id="pay">💳 Pay 0.001 Pi (test)</button>
+
+  <p>Лог:</p>
+  <div id="log"></div>
+
+  <script>
+    const logBox = document.getElementById('log');
+    function log(...args){ logBox.textContent += args.join(' ') + '\n'; }
+
+    // Инициализация SDK
+    try {
+      Pi.init({ version: "2.0" });
+      log("SDK: initialized");
+    } catch(e){ log("SDK init error:", e); }
+
+    // Логин
+    document.getElementById('login').onclick = async () => {
+      try {
+        const scopes = ["username","payments"];
+        const me = await Pi.authenticate(scopes, (p)=>log("onIncompletePaymentFound:", p && p.identifier));
+        log("Logged in as @", me.user && me.user.username);
+      } catch(e){ log("Login error:", e); }
+    };
+
+    // Платёж
+    document.getElementById('pay').onclick = async () => {
+      try {
+        const payment = await Pi.createPayment({
+          amount: 0.001,
+          memo: "TPi debug",
+          metadata: { debug: true }
+        }, {
+          onReadyForServerApproval: async (paymentId) => {
+            log("onReadyForServerApproval:", paymentId);
+            // Шлём на сервер /api/approve
+            try{
+              const r = await fetch('/api/approve', {
+                method: 'POST',
+                headers: {'Content-Type':'application/json'},
+                body: JSON.stringify({ paymentId })
+              });
+              const t = await r.text();
+              log("approve", r.status, t);
+            }catch(err){ log("approve fetch error:", String(err)); }
+          },
+          onReadyForServerCompletion: async (paymentId) => {
+            log("onReadyForServerCompletion:", paymentId);
+            // Шлём на сервер /api/complete
+            try{
+              const r = await fetch('/api/complete', {
+                method: 'POST',
+                headers: {'Content-Type':'application/json'},
+                body: JSON.stringify({ paymentId })
+              });
+              const t = await r.text();
+              log("complete", r.status, t);
+            }catch(err){ log("complete fetch error:", String(err)); }
+          },
+          onCancel: (paymentId) => log("onCancel:", paymentId),
+          onError: (error, paymentId) => log("onError:", error, paymentId)
+        });
+        log("createPayment promise resolved");
+      } catch(e){ log("createPayment error:", e); }
+    };
+  </script>
+</body>
+</html>
