@@ -1,4 +1,0 @@
-// api/ping.js
-module.exports = async function handler(req, res) {
-  res.status(200).json({ ok: true, method: req.method, now: Date.now() });
-};
