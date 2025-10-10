@@ -19,10 +19,10 @@ module.exports = async function handler(req, res) {
       return res.status(400).json({ error: 'Missing paymentId' });
     }
 
-    const response = await fetch(https://api.minepi.com/v2/payments/${paymentId}/approve, {
+    const response = await fetch( 'https://api.minepi.com/v2/payments/${paymentId}/approve', {
       method: 'POST',
       headers: {
-        Authorization: Key ${process.env.PI_API_KEY},
+         'Authorization': Key ${process.env.PI_API_KEY},
         'Content-Type': 'application/json',
       },
     });
