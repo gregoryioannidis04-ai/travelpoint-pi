@@ -1,4 +1,4 @@
-// /api/complete.js  (CommonJS)
+// api/complete.js
 module.exports = async function handler(req, res) {
   if (req.method === 'GET') {
     return res.status(200).json({
@@ -19,14 +19,14 @@ module.exports = async function handler(req, res) {
       return res.status(400).json({ error: 'missing_paymentId' });
     }
 
-    const url = https://api.minepi.com/v3/payments/${paymentId}/complete;
+    const url = 'https://api.minepi.com/v3/payments/' + paymentId + '/complete';
 
     let r;
     try {
       r = await fetch(url, {
         method: 'POST',
         headers: {
-          'Authorization': Key ${process.env.PI_SERVER_API_KEY},
+          'Authorization': 'Key ' + process.env.PI_SERVER_API_KEY,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({}),
@@ -40,7 +40,8 @@ module.exports = async function handler(req, res) {
       return res.status(r.status).json({ error: 'pi_api_error', status: r.status, url, body: text });
     }
 
-    let data; try { data = JSON.parse(text); } catch { data = { raw: text }; }
+    let data;
+    try { data = JSON.parse(text); } catch { data = { raw: text }; }
     return res.status(200).json({ ok: true, data });
   } catch (e) {
     return res.status(500).json({ error: 'server_error', message: String(e) });
