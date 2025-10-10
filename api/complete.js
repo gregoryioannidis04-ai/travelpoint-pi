@@ -1,49 +1,36 @@
-// api/complete.js
-module.exports = async function handler(req, res) {
-  if (req.method === 'GET') {
+export default async function handler(req, res) {
+  if (req.method === "GET") {
     return res.status(200).json({
       ok: true,
-      route: '/api/complete',
-      method: 'GET',
-      hasEnv: !!process.env.PI_SERVER_API_KEY,
+      route: "/api/complete",
+      method: "GET",
+      hasEnv: !!process.env.PI_API_KEY,
     });
   }
 
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'method_not_allowed' });
-  }
-
-  try {
-    const { paymentId } = req.body || {};
-    if (!paymentId) {
-      return res.status(400).json({ error: 'missing_paymentId' });
-    }
-
-    const url = 'https://api.minepi.com/v3/payments/' + paymentId + '/complete';
-
-    let r;
+  if (req.method === "POST") {
     try {
-      r = await fetch(url, {
-        method: 'POST',
-        headers: {
-          'Authorization': 'Key ' + process.env.PI_SERVER_API_KEY,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({}),
+      const body = req.body && Object.keys(req.body).length
+        ? req.body
+        : JSON.parse(req.body || "{}");
+
+      // Здесь обычно подтверждают перевод в Pi API (complete)
+      return res.status(200).json({
+        ok: true,
+        route: "/api/complete",
+        method: "POST",
+        received: body || null,
+        note: "stub complete: returned 200",
       });
-    } catch (err) {
-      return res.status(502).json({ error: 'fetch_failed', message: String(err), url });
+    } catch {
+      return res.status(200).json({
+        ok: true,
+        route: "/api/complete",
+        method: "POST",
+        note: "stub complete with parse fallback",
+      });
     }
-
-    const text = await r.text();
-    if (!r.ok) {
-      return res.status(r.status).json({ error: 'pi_api_error', status: r.status, url, body: text });
-    }
-
-    let data;
-    try { data = JSON.parse(text); } catch { data = { raw: text }; }
-    return res.status(200).json({ ok: true, data });
-  } catch (e) {
-    return res.status(500).json({ error: 'server_error', message: String(e) });
   }
-};
+
+  return res.status(405).json({ error: "Method Not Allowed" });
+}
