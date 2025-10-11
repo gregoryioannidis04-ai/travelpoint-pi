@@ -39,119 +39,101 @@
     <div id="status">Booting…</div>
   </div>
 
-  <script>
-    // --- утилита статуса ---
-    const setStatus = (msg) => {
-      const el = document.getElementById('status');
-      if (el) el.textContent = msg;
-      console.log('[STATUS]', msg);
-    };
+ <script>
+  // ===== helpers =====
+  function setStatus(msg){ document.getElementById('status')?.textContent = msg; }
 
-    // --- защита от "мертвой" кнопки: глобальный ловец первого клика ---
-    document.addEventListener('click', () => {
-      if (!window.__firstClick) {
-        window.__firstClick = true;
-        console.log('[DEBUG] First click detected');
-      }
-    }, { once: true });
+  // incomplete payments callback (на случай, если раньше оплата зависла)
+  function onIncompletePaymentFound(payment) {
+    console.log("Incomplete payment:", payment);
+    setStatus("Found incomplete payment; you can try again.");
+  }
 
-    // --- навешиваем слушатели дополнительно (помимо onclick=) ---
-    document.addEventListener('DOMContentLoaded', () => {
-      const btnLogin = document.getElementById('btnLogin');
-      const btnPay   = document.getElementById('btnPay');
-      btnLogin && btnLogin.addEventListener('click', () => login());
-      btnPay   && btnPay.addEventListener('click', () => pay());
-
-      // Инициализация Pi SDK
-      if (!window.Pi) {
-        setStatus('❌ Pi SDK not found. Open in Pi Browser.');
-        return;
-      }
-      try {
-        // В тестнете sandbox=true. В mainnet sandbox=false.
-        Pi.init({ version: '2.0', sandbox: true });
-        setStatus('✅ Pi SDK connected. Please login first.');
-      } catch (e) {
-        console.error(e);
-        setStatus('❌ Pi.init() failed: ' + (e?.message || 'unknown'));
-      }
-    });
-
-    // --- обработчик незавершённого платежа ---
-    function onIncompletePaymentFound(payment) {
-      console.log('[Pi] Incomplete payment found:', payment);
-      setStatus('Found incomplete payment. Try again.');
+  // ===== init SDK =====
+  document.addEventListener("DOMContentLoaded", () => {
+    if (!window.Pi) {
+      setStatus("❌ Pi SDK not found. Open this page in Pi Browser.");
+      return;
     }
+    // Тестовая среда → sandbox: true (для Mainnet поставишь false)
+    Pi.init({ version: "2.0", sandbox: true });
+    setStatus("✅ Pi SDK connected. Please Login first.");
+  });
 
-    // --- LOGIN ---
-    async function login() {
-      alert('Login button clicked'); // явный признак, что клики доходят
-      try {
-        const scopes = ['username','payments'];
-        const auth = await Pi.authenticate(scopes, onIncompletePaymentFound);
-        window.__piUser = auth?.user;
-        setStatus('Logged in as @' + auth?.user?.username);
-        console.log('[Pi] Auth:', auth);
-      } catch (err) {
-        console.error('[Pi] Login error:', err);
-        setStatus('Login error: ' + (err?.message || 'unknown'));
-      }
+  // ===== REAL LOGIN =====
+  async function login() {
+    try {
+      const scopes = ["username", "payments"];
+      const auth = await Pi.authenticate(scopes, onIncompletePaymentFound);
+      // сохраним пользователя глобально — пригодится для платежа
+      window.__piUser = auth.user;
+      setStatus(✅ Logged in as @${auth.user.username});
+      console.log("Auth result:", auth);
+    } catch (err) {
+      console.error("Pi.authenticate error:", err);
+      setStatus("Login error: " + (err?.message ?? "Unknown"));
+      alert("Login failed: " + (err?.message ?? "Unknown"));
     }
+  }
 
-    // --- PAY ---
-    async function pay() {
-      alert('Pay button clicked'); // чтобы видеть сам клик
-      if (!window.__piUser) {
-        setStatus('Please login first.');
-        return;
-      }
-      try {
-        await Pi.createPayment({
-          amount: 0.001,
-          memo: 'TravelPoint PiNet verification',
-          metadata: { orderId: Date.now() }
-        }, {
-          onReadyForServerApproval: async (paymentId) => {
-            console.log('[Pi] onReadyForServerApproval', paymentId);
-            try {
-              const r = await fetch('/api/approve', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ paymentId })
-              });
-              if (!r.ok) throw new Error(await r.text());
-              setStatus('✅ Approved by server. Waiting for tx…');
-            } catch (e) {
-              console.error(e);
-              setStatus('Server approval failed.');
-            }
-          },
-          onReadyForServerCompletion: async (paymentId, txid) => {
-            console.log('[Pi] onReadyForServerCompletion', paymentId, txid);
-            try {
-              const r = await fetch('/api/complete', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ paymentId, txid })
-              });
-              if (!r.ok) throw new Error(await r.text());
-              setStatus('🎉 Payment completed!');
-            } catch (e) {
-              console.error(e);
-              setStatus('Server completion failed.');
-            }
-          },
-          onCancel: () => setStatus('Payment canceled.'),
-          onError: (err) => {
-            console.error('[Pi] Payment error:', err);
-            setStatus('Payment error: ' + (err?.message || 'unknown'));
+  // ===== PAYMENT (без изменений, если уже работало) =====
+  async function pay() {
+    if (!window.__piUser) {
+      setStatus("Please login first.");
+      return;
+    }
+    try {
+      const payment = await Pi.createPayment({
+        amount: 0.001,
+        memo: "TravelPoint PiNet verification",
+        metadata: { orderId: Date.now() }
+      }, {
+        onReadyForServerApproval: async (paymentId) => {
+          try {
+            const r = await fetch("/api/approve", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ paymentId })
+            });
+            if (!r.ok) throw await r.text();
+            setStatus("✅ Approved by server. Awaiting blockchain tx…");
+          } catch (e) {
+            console.error(e);
+            setStatus("Server approval failed.");
           }
-        });
-      } catch (err) {
-        console.error('[Pi] createPayment error:', err);
-        setStatus('CreatePayment failed.');
-      }
+        },
+        onReadyForServerCompletion: async (paymentId, txid) => {
+          try {
+            const r = await fetch("/api/complete", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ paymentId, txid })
+            });
+            if (!r.ok) throw await r.text();
+            setStatus("🎉 Payment completed! You can finish Step 10.");
+            alert("Payment completed successfully!");
+          } catch (e) {
+            console.error(e);
+            setStatus("Server completion failed.");
+          }
+        },
+        onCancel: () => setStatus("Payment canceled."),
+        onError: (err) => {
+          console.error(err);
+          setStatus("Payment error: " + (err?.message ?? "Unknown"));
+        }
+      });
+
+      console.log("payment obj:", payment);
+    } catch (err) {
+      console.error(err);
+      setStatus("CreatePayment failed.");
     }
-  </script>
+  }
+
+  // откроем функции для кнопок с onclick="..."
+  window.login = login;
+  window.pay = pay;
+</script>
 </body>
 </html>
