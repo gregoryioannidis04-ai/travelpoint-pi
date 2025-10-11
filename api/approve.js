@@ -30,8 +30,8 @@ module.exports = async (req, res) => {
 
   try {
     const body = await readBody(req);
-    const paymentId = body.paymentId  body.payment_id  body.paymentID;
-    const txid = body.txid  body.txId  body.transaction_id;
+    const paymentId = body.paymentId || body.payment_id || body.paymentID;
+    const txid = body.txid || body.txId || body.transaction_id;
 
     if (!paymentId || !txid) {
       return res.status(400).json({
