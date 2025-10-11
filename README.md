@@ -37,7 +37,7 @@ To create the first travel hub inside the Pi ecosystem, connecting global travel
 - [Traveloka](https://www.traveloka.com)  
 - [Trip.com](https://www.trip.com)  
 - [Tiqets](https://www.tiqets.com)  
-
+- [Booking.com](https://www.booking.com)  
 ---
 
 ## 📅 Roadmap
