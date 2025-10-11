@@ -123,6 +123,31 @@
       setStatus("Pi.init error");
     }
   });
+  // === ДОБАВЛЯЕМ В САМИЙ НИЗ ПЕРЕД </script> ===
+document.addEventListener("DOMContentLoaded", () => {
+  // диагностический клик
+  document.body.addEventListener("click", (e) => {
+    if (!window.__clickedOnce) {
+      window.__clickedOnce = true;
+      alert("Click detected");
+    }
+  }, { once: true });
+
+  // навешиваем обработчики на кнопки
+  const btnLogin = document.getElementById("btnLogin");
+  const btnPay   = document.getElementById("btnPay");
+
+  if (btnLogin) btnLogin.addEventListener("click", () => window.login());
+  if (btnPay)   btnPay.addEventListener("click", () => window.pay());
+
+  // инициализация Pi SDK для TESTNET
+  if (!window.Pi) {
+    setStatus("❌ Pi SDK not found (open in Pi Browser).");
+    return;
+  }
+  Pi.init({ version: "2.0", sandbox: true });
+  setStatus("✅ Pi SDK connected. Please Login first.");
+});
 </script>
 </body>
 </html>
