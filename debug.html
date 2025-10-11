@@ -1,84 +1,67 @@
-<!doctype html>
-<html>
+<!DOCTYPE html>
+<html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>TPi Debug</title>
-  <script src="https://sdk.minepi.com/pi-sdk.js"></script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Pi Debug Page</title>
+  <script src="https://sdk.minepi.com/pi-sdk.js?v=debug"></script>
   <style>
-    body { font-family: system-ui, sans-serif; padding: 16px; }
-    button { padding: 10px 14px; margin: 6px 0; }
-    #log { white-space: pre-wrap; background:#f6f6f6; padding:12px; border-radius:8px; }
+    body{font-family:system-ui,Arial,sans-serif;padding:24px}
+    button{padding:12px 16px;margin:8px 6px;font-size:16px;border-radius:10px}
+    #log{white-space:pre-wrap;background:#f7f7f7;border:1px solid #eee;padding:12px;border-radius:8px;margin-top:12px}
   </style>
 </head>
 <body>
-  <h2>TravelPoint Pi — Debug</h2>
+  <h2>Pi Debug</h2>
+  <p>Use this page in <b>Pi Browser</b> to test clicks and SDK.</p>
 
-  <button id="login">🔑 Login with Pi</button><br/>
-  <button id="pay">💳 Pay 0.001 Pi (test)</button>
+  <div>
+    <button id="btnClick" type="button">Test Click</button>
+    <button id="btnSDK" type="button">Check SDK</button>
+    <button id="btnLogin" type="button">Login with Pi (sandbox)</button>
+  </div>
 
-  <p>Лог:</p>
   <div id="log"></div>
 
   <script>
-    const logBox = document.getElementById('log');
-    function log(...args){ logBox.textContent += args.join(' ') + '\n'; }
+    function log(){ 
+      const el = document.getElementById('log');
+      const line = Array.from(arguments).map(a => (typeof a==='object'? JSON.stringify(a,null,2): String(a))).join(' ');
+      el.textContent += line + "\\n";
+    }
 
-    // Инициализация SDK
-    try {
-      Pi.init({ version: "2.0" });
-      log("SDK: initialized");
-    } catch(e){ log("SDK init error:", e); }
+    document.getElementById('btnClick').addEventListener('click', function(){
+      alert('Click works ✅');
+      log('click: OK');
+    });
 
-    // Логин
-    document.getElementById('login').onclick = async () => {
+    document.getElementById('btnSDK').addEventListener('click', function(){
+      log('window.Pi =', !!window.Pi);
+      if (window.Pi) {
+        try {
+          Pi.init({ version: '2.0', sandbox: true });
+          log('Pi.init sandbox:true ✅');
+        } catch (e) {
+          log('Pi.init error:', e && e.message);
+        }
+      } else {
+        log('Pi SDK not found — open in Pi Browser');
+      }
+    });
+
+    document.getElementById('btnLogin').addEventListener('click', async function(){
+      if (!window.Pi) { alert('No Pi SDK'); log('No Pi SDK'); return; }
       try {
-        const scopes = ["username","payments"];
-        const me = await Pi.authenticate(scopes, (p)=>log("onIncompletePaymentFound:", p && p.identifier));
-        log("Logged in as @", me.user && me.user.username);
-      } catch(e){ log("Login error:", e); }
-    };
-
-    // Платёж
-    document.getElementById('pay').onclick = async () => {
-      try {
-        const payment = await Pi.createPayment({
-          amount: 0.001,
-          memo: "TPi debug",
-          metadata: { debug: true }
-        }, {
-          onReadyForServerApproval: async (paymentId) => {
-            log("onReadyForServerApproval:", paymentId);
-            // Шлём на сервер /api/approve
-            try{
-              const r = await fetch('/api/approve', {
-                method: 'POST',
-                headers: {'Content-Type':'application/json'},
-                body: JSON.stringify({ paymentId })
-              });
-              const t = await r.text();
-              log("approve", r.status, t);
-            }catch(err){ log("approve fetch error:", String(err)); }
-          },
-          onReadyForServerCompletion: async (paymentId) => {
-            log("onReadyForServerCompletion:", paymentId);
-            // Шлём на сервер /api/complete
-            try{
-              const r = await fetch('/api/complete', {
-                method: 'POST',
-                headers: {'Content-Type':'application/json'},
-                body: JSON.stringify({ paymentId })
-              });
-              const t = await r.text();
-              log("complete", r.status, t);
-            }catch(err){ log("complete fetch error:", String(err)); }
-          },
-          onCancel: (paymentId) => log("onCancel:", paymentId),
-          onError: (error, paymentId) => log("onError:", error, paymentId)
-        });
-        log("createPayment promise resolved");
-      } catch(e){ log("createPayment error:", e); }
-    };
+        Pi.init({ version: '2.0', sandbox: true });
+        const scopes = ['username','payments'];
+        const auth = await Pi.authenticate(scopes, function(p){ log('incomplete payment:', p); });
+        log('Logged in as @' + auth.user.username);
+        alert('Logged in as @' + auth.user.username);
+      } catch (e) {
+        log('Login error:', e && (e.message || JSON.stringify(e)));
+        alert('Login error: ' + (e && (e.message || JSON.stringify(e))));
+      }
+    });
   </script>
 </body>
 </html>
