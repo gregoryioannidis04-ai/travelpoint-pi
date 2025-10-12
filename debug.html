@@ -1,67 +1,61 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Pi Debug Page</title>
-  <script src="https://sdk.minepi.com/pi-sdk.js?v=debug"></script>
-  <style>
-    body{font-family:system-ui,Arial,sans-serif;padding:24px}
-    button{padding:12px 16px;margin:8px 6px;font-size:16px;border-radius:10px}
-    #log{white-space:pre-wrap;background:#f7f7f7;border:1px solid #eee;padding:12px;border-radius:8px;margin-top:12px}
-  </style>
-</head>
-<body>
-  <h2>Pi Debug</h2>
-  <p>Use this page in <b>Pi Browser</b> to test clicks and SDK.</p>
+<script src="https://sdk.minepi.com/pi-sdk.js"></script>
+<script>
+  const out = (msg, obj) => {
+    const box = document.getElementById('out');
+    const text = typeof msg === 'string' ? msg : JSON.stringify(msg, null, 2);
+    box.textContent += text + (obj ? ' ' + JSON.stringify(obj, null, 2) : '') + '\n';
+  };
 
-  <div>
-    <button id="btnClick" type="button">Test Click</button>
-    <button id="btnSDK" type="button">Check SDK</button>
-    <button id="btnLogin" type="button">Login with Pi (sandbox)</button>
-  </div>
+  document.addEventListener('DOMContentLoaded', async () => {
+    // кнопки
+    const btnClick  = document.getElementById('btnClick');
+    const btnCheck  = document.getElementById('btnCheck');
+    const btnLogin  = document.getElementById('btnLogin');
 
-  <div id="log"></div>
+    btnClick.addEventListener('click', () => {
+      alert('Click works ✅');
+      out('click: OK');
+    });
 
-  <script>
-    function log(){ 
-      const el = document.getElementById('log');
-      const line = Array.from(arguments).map(a => (typeof a==='object'? JSON.stringify(a,null,2): String(a))).join(' ');
-      el.textContent += line + "\\n";
+    btnCheck.addEventListener('click', () => {
+      out('window.Pi = ' + (!!window.Pi));
+      if (window.Pi) {
+        out('Pi.init sandbox:true ✅');
+      } else {
+        out('❌ Pi SDK not found. Open page IN Pi Browser.');
+      }
+    });
+
+    // ИНИЦИАЛИЗАЦИЯ SDK (TESTNET!)
+    if (!window.Pi) {
+      out('❌ Pi SDK not found'); 
+      return;
+    }
+    try {
+      Pi.init({ version: '2.0', sandbox: true }); // Testnet = true
+      out('Pi.init done (sandbox:true)');
+    } catch(e) {
+      out('Pi.init error', { message: e?.message, code: e?.code });
     }
 
-    document.getElementById('btnClick').addEventListener('click', function(){
-      alert('Click works ✅');
-      log('click: OK');
-    });
-
-    document.getElementById('btnSDK').addEventListener('click', function(){
-      log('window.Pi =', !!window.Pi);
-      if (window.Pi) {
-        try {
-          Pi.init({ version: '2.0', sandbox: true });
-          log('Pi.init sandbox:true ✅');
-        } catch (e) {
-          log('Pi.init error:', e && e.message);
-        }
-      } else {
-        log('Pi SDK not found — open in Pi Browser');
-      }
-    });
-
-    document.getElementById('btnLogin').addEventListener('click', async function(){
-      if (!window.Pi) { alert('No Pi SDK'); log('No Pi SDK'); return; }
+    // ВЫЗОВ АВТОРИЗАЦИИ С ПОЛНЫМ ЛОГОМ ОШИБОК
+    btnLogin.addEventListener('click', async () => {
+      out('login button pressed');
       try {
-        Pi.init({ version: '2.0', sandbox: true });
-        const scopes = ['username','payments'];
-        const auth = await Pi.authenticate(scopes, function(p){ log('incomplete payment:', p); });
-        log('Logged in as @' + auth.user.username);
-        alert('Logged in as @' + auth.user.username);
+        const scopes = ['username', 'payments'];
+        const auth = await Pi.authenticate(scopes, (p) => out('onIncompletePaymentFound', p));
+        out('AUTH OK ✅', auth);
+        alert('Authenticated as @' + auth?.user?.username);
       } catch (e) {
-        log('Login error:', e && (e.message || JSON.stringify(e)));
-        alert('Login error: ' + (e && (e.message || JSON.stringify(e))));
+        // покажем ВСЁ, что пришло
+        out('AUTH ERROR ❌', {
+          name: e?.name,
+          message: e?.message,
+          code: e?.code,
+          toString: e?.toString?.()
+        });
+        alert('Auth error: ' + (e?.code  e?.message  'unknown'));
       }
     });
-  </script>
-</body>
-</html>
+  });
+</script>
