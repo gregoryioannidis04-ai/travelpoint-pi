@@ -1,70 +1,95 @@
-// --- helpers ---
+// ---------- helpers ----------
 function $(id){ return document.getElementById(id); }
 function log(){
-  var out = $('log');
-  var parts = [];
-  for (var i=0;i<arguments.length;i++){
-    try { parts.push(typeof arguments[i] === 'string' ? arguments[i] : JSON.stringify(arguments[i])); }
+  const box = $('log');
+  const parts = [];
+  for (let i=0;i<arguments.length;i++){
+    try { parts.push(typeof arguments[i]==='string'? arguments[i] : JSON.stringify(arguments[i])); }
     catch(_){ parts.push(String(arguments[i])); }
   }
-  out.textContent += parts.join(' ') + "\n";
+  box.textContent += parts.join(' ') + '\n';
+  box.scrollTop = box.scrollHeight;
 }
 function setStatus(t){ $('status').textContent = t; }
 
-// --- boot marker (покажет, что скрипт действительно исполнился) ---
+// ---------- boot marker ----------
 (function(){
   log('app.js loaded');
   setStatus('Booting…');
 })();
 
-// --- основная логика ---
-window.addEventListener('DOMContentLoaded', function(){
-  var btnLogin = $('btnLogin');
-  var btnPay   = $('btnPay');
+// ---------- global error taps ----------
+window.addEventListener('error', (e)=>{
+  log('window.error:', {message:e.message, filename:e.filename, lineno:e.lineno, colno:e.colno});
+});
+window.addEventListener('unhandledrejection', (e)=>{
+  log('unhandledrejection:', {reason: (e.reason && (e.reason.codee.reason.messageString(e.reason)))});
+});
 
-  // клики точно живые?
-  btnLogin.addEventListener('click', function(){ log('Login button clicked'); });
-  btnPay.addEventListener('click',   function(){ log('Pay button clicked'); });
+// ---------- main ----------
+window.addEventListener('DOMContentLoaded', async () => {
+  const btnLogin = $('btnLogin');
+  const btnPay   = $('btnPay');
 
-  // Проверка наличия Pi SDK
+  // клики живые
+  btnLogin.addEventListener('click', ()=> log('Login button clicked'));
+  btnPay  .addEventListener('click', ()=> log('Pay button clicked'));
+
+  // немного среды
+  log('UA has PiBrowser:', navigator.userAgent.includes('PiBrowser'));
+  log('location.host:', location.host);
+
+  // есть ли SDK вообще?
+  log('typeof window.Pi:', typeof window.Pi);
   if (!window.Pi) {
     setStatus('❌ Pi SDK not found (open this page in Pi Browser).');
     return;
   }
 
-  // Инициализация SDK (TESTNET/SANDBOX)
+  // init
   try {
-    Pi.init({ version: '2.0', sandbox: true }); // ← если нужно mainnet, поставьте false
+    // В TESTNET используем sandbox:true
+    Pi.init({ version: '2.0', sandbox: true });
     setStatus('SDK ready (sandbox:true). Please login.');
+    log('Pi.init done');
+    log('typeof Pi.authenticate:', typeof Pi.authenticate);
   } catch(e) {
-    setStatus('Pi.init error: ' + (e && e.message ? e.message : 'unknown'));
-    log('Pi.init error', { name: e && e.name, message: e && e.message, code: e && e.code });
+    setStatus('Pi.init error: ' + (e?.message || 'unknown'));
+    log('Pi.init error:', {name:e?.name, message:e?.message, code:e?.code});
     return;
   }
 
-  // Логин
-  btnLogin.addEventListener('click', function(){
+  // LOGIN (с таймаут-сторожем)
+  btnLogin.addEventListener('click', async () => {
     setStatus('Authorizing…');
+    log('Auth start…');
+
+    const scopes = ['username','payments'];
+    let settled = false;
+
+    // сторож: если за 10с ничего не случится — напишем
+    const guard = setTimeout(()=>{
+      if (!settled) {
+        log('AUTH TIMEOUT: no response from Pi.authenticate within 10s');
+        setStatus('Auth timed out. (No response from SDK)');
+      }
+    }, 10000);
+
     try {
-      var scopes = ['username','payments'];
-      Pi.authenticate(scopes, function(p){ log('onIncompletePaymentFound', p); })
-        .then(function(auth){
-          log('AUTH OK', auth);
-          setStatus('Logged in as @' + (auth && auth.user && auth.user.username ? auth.user.username : 'unknown'));
-          btnPay.disabled = false;
-        })
-        .catch(function(e){
-          log('AUTH ERROR', { name: e && e.name, message: e && e.message, code: e && e.code });
-          setStatus('Login failed: ' + (e && (e.code || e.message) ? (e.code || e.message) : 'unknown'));
-        });
-    } catch(e){
-      log('AUTH THROW', e);
-      setStatus('Login failed (throw): ' + (e && e.message ? e.message : 'unknown'));
+      const auth = await Pi.authenticate(scopes, p => log('onIncompletePaymentFound:', p));
+      settled = true; clearTimeout(guard);
+      log('AUTH OK ✅', auth);
+      setStatus('Logged in as @' + (auth?.user?.username || 'unknown'));
+      btnPay.disabled = false;
+    } catch(e) {
+      settled = true; clearTimeout(guard);
+      log('AUTH ERROR ❌', {name:e?.name, message:e?.message, code:e?.code, toString: e?.toString?.()});
+      setStatus('Login failed: ' + (e?.code || e?.message || 'unknown'));
     }
   });
 
-  // Платеж (только чтобы проверить реакцию кнопки)
-  btnPay.addEventListener('click', function(){
-    setStatus('Payment flow disabled in debug build. (Кнопка кликается ✅)');
+  // PAY (пока просто проверка клика)
+  btnPay.addEventListener('click', ()=>{
+    setStatus('Payment flow disabled in debug build (кнопка кликается ✅).');
   });
 });
