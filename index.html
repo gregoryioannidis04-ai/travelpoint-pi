@@ -1,140 +1,141 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>TravelPoint Pi — Test</title>
-
-  <!-- CSP: разрешаем наш inline-скрипт и Pi SDK -->
-  <meta http-equiv="Content-Security-Policy"
-        content="default-src 'self';
-                 script-src 'self' https://sdk.minepi.com 'unsafe-inline';
-                 connect-src 'self' https://api.minepi.com;
-                 img-src 'self' data:;
-                 style-src 'self' 'unsafe-inline';">
-
-  <style>
-    html,body{margin:0;padding:0;font-family:system-ui,Arial,sans-serif}
-    .wrap{max-width:680px;margin:32px auto;padding:0 16px;text-align:center}
-    button{
-      font-size:16px;padding:12px 18px;margin:10px;border:1px solid #ccc;
-      border-radius:10px;cursor:pointer;display:inline-block
-    }
-    #status{margin-top:16px;color:#444}
-    /* защитимся от «прозрачного слоя» поверх страницы */
-    body,*{pointer-events:auto}
-  </style>
-
-  <!-- Pi SDK -->
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>TravelPoint Pi</title>
   <script src="https://sdk.minepi.com/pi-sdk.js"></script>
+  <style>
+    body {font-family: system-ui, Arial, sans-serif; padding: 24px; text-align:center}
+    h1 {margin: 12px 0 6px}
+    button {font-size:16px; padding:12px 18px; margin:10px; border:1px solid #ccc; border-radius:12px; cursor:pointer}
+    #log {white-space:pre-wrap; text-align:left; max-width:680px; margin:18px auto; padding:12px; border:1px dashed #bbb; border-radius:12px; background:#fafafa}
+  </style>
 </head>
 <body>
-  <div class="wrap">
-    <h1>TravelPoint Pi</h1>
-    <p>Use <b>Pi Browser</b> to test a tiny payment flow.</p>
+  <h1>TravelPoint Pi</h1>
+  <p>Use <b>Pi Browser</b> to test a tiny payment flow.</p>
 
-    <button id="btnLogin" onclick="login()">🔑 Login with Pi</button>
-    <button id="btnPay"   onclick="pay()">💳 Pay 0.001 Pi (test)</button>
-
-    <div id="status">Booting…</div>
+  <div>
+    <button id="btnLogin" type="button">🔑 Login with Pi</button>
+    <button id="btnPay"   type="button">💳 Pay 0.001 Pi (test)</button>
   </div>
 
- <script>
-  // ===== helpers =====
-  function setStatus(msg){ document.getElementById('status')?.textContent = msg; }
+  <p id="status">Booting…</p>
+  <div id="log"></div>
 
-  // incomplete payments callback (на случай, если раньше оплата зависла)
-  function onIncompletePaymentFound(payment) {
-    console.log("Incomplete payment:", payment);
-    setStatus("Found incomplete payment; you can try again.");
-  }
+<script>
+(function(){
+  const $ = (id)=>document.getElementById(id);
+  const log = (msg,obj)=>{
+    const line = (typeof msg==='string'?msg:JSON.stringify(msg));
+    $('log').textContent += line + (obj? ' ' + JSON.stringify(obj,null,2):'') + '\n';
+  };
+  const setStatus = (s)=> $('status').textContent = s;
 
-  // ===== init SDK =====
-  document.addEventListener("DOMContentLoaded", () => {
-    if (!window.Pi) {
-      setStatus("❌ Pi SDK not found. Open this page in Pi Browser.");
+  // Диагностический глобальный клик — сразу покажет, доходят ли клики вообще
+  document.addEventListener('click', (e)=>{
+    if(!window.__clickedOnce){
+      window.__clickedOnce = true;
+      alert('Click captured ✅');
+      log('click captured ✅');
+    }
+  }, {once:true});
+
+  // Дублируем обработчики "в лоб", если браузер вдруг игнорит addEventListener
+  $('btnLogin').setAttribute('onclick','window.login && window.login()');
+  $('btnPay').setAttribute('onclick','window.pay && window.pay()');
+
+  // Основные обработчики
+  window.__login = async function(){
+    log('login pressed');
+    try{
+      const scopes = ['username','payments'];
+      const auth = await Pi.authenticate(scopes, (p)=>log('onIncompletePaymentFound',p));
+      log('AUTH OK ✅', auth);
+      setStatus('Logged in as @'+ (auth?.user?.username||'unknown'));
+      alert('Logged in as @'+(auth?.user?.username||'unknown'));
+    }catch(e){
+      log('AUTH ERROR ❌', {name:e?.name, code:e?.code, message:e?.message});
+      alert('Auth error: ' + (e?.codee?.message'unknown'));
+    }
+  };
+
+  window.__pay = async function(){
+    log('pay pressed');
+    if(!window.__loggedWarned && (!window.Pi || !Pi?.authenticate)){
+      alert('Pi SDK not ready. Reload in Pi Browser.');
       return;
     }
-    // Тестовая среда → sandbox: true (для Mainnet поставишь false)
-    Pi.init({ version: "2.0", sandbox: true });
-    setStatus("✅ Pi SDK connected. Please Login first.");
-  });
-
-  // ===== REAL LOGIN =====
-  async function login() {
-    try {
-      const scopes = ["username", "payments"];
-      const auth = await Pi.authenticate(scopes, onIncompletePaymentFound);
-      // сохраним пользователя глобально — пригодится для платежа
-      window.__piUser = auth.user;
-      setStatus(✅ Logged in as @${auth.user.username});
-      console.log("Auth result:", auth);
-    } catch (err) {
-      console.error("Pi.authenticate error:", err);
-      setStatus("Login error: " + (err?.message ?? "Unknown"));
-      alert("Login failed: " + (err?.message ?? "Unknown"));
-    }
-  }
-
-  // ===== PAYMENT (без изменений, если уже работало) =====
-  async function pay() {
-    if (!window.__piUser) {
-      setStatus("Please login first.");
-      return;
-    }
-    try {
+    try{
       const payment = await Pi.createPayment({
         amount: 0.001,
-        memo: "TravelPoint PiNet verification",
-        metadata: { orderId: Date.now() }
-      }, {
-        onReadyForServerApproval: async (paymentId) => {
-          try {
-            const r = await fetch("/api/approve", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ paymentId })
+        memo: 'TravelPoint PiNet verification',
+        metadata: { ts: Date.now() }
+      },{
+        onReadyForServerApproval: async (paymentId)=>{
+          log('onReadyForServerApproval', {paymentId});
+          try{
+            const r = await fetch('/api/approve', {
+              method:'POST',
+              headers:{'Content-Type':'application/json'},
+              body: JSON.stringify({paymentId})
             });
-            if (!r.ok) throw await r.text();
-            setStatus("✅ Approved by server. Awaiting blockchain tx…");
-          } catch (e) {
-            console.error(e);
-            setStatus("Server approval failed.");
-          }
+            const t = await r.text();
+            log('approve →', {status:r.status, body:t});
+            if(!r.ok) throw new Error('Approve failed '+r.status);
+            setStatus('Approved by server. Awaiting blockchain tx…');
+          }catch(e){ log('approve error', e); alert('Approve failed'); }
         },
-        onReadyForServerCompletion: async (paymentId, txid) => {
-          try {
-            const r = await fetch("/api/complete", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ paymentId, txid })
+        onReadyForServerCompletion: async (paymentId, txid)=>{
+          log('onReadyForServerCompletion', {paymentId, txid});
+          try{
+            const r = await fetch('/api/complete', {
+              method:'POST',
+              headers:{'Content-Type':'application/json'},
+              body: JSON.stringify({paymentId, txid})
             });
-            if (!r.ok) throw await r.text();
-            setStatus("🎉 Payment completed! You can finish Step 10.");
-            alert("Payment completed successfully!");
-          } catch (e) {
-            console.error(e);
-            setStatus("Server completion failed.");
-          }
+            const t = await r.text();
+            log('complete →', {status:r.status, body:t});
+            if(!r.ok) throw new Error('Complete failed '+r.status);
+            setStatus('🎉 Payment completed!');
+            alert('Payment completed!');
+          }catch(e){ log('complete error', e); alert('Complete failed'); }
         },
-        onCancel: () => setStatus("Payment canceled."),
-        onError: (err) => {
-          console.error(err);
-          setStatus("Payment error: " + (err?.message ?? "Unknown"));
-        }
+        onCancel: (paymentId)=>{ log('onCancel', {paymentId}); setStatus('Payment canceled'); },
+        onError: (err, paymentId)=>{ log('onError', {err, paymentId}); setStatus('Payment error'); }
       });
+      log('createPayment returned', payment);
+    }catch(e){
+      log('createPayment error', {name:e?.name, code:e?.code, message:e?.message});
+      alert('createPayment error: ' + (e?.codee?.message'unknown'));
+    }
+  };
 
-      console.log("payment obj:", payment);
-    } catch (err) {
-      console.error(err);
-      setStatus("CreatePayment failed.");
+  // Инициализация SDK (TESTNET!)
+  function init(){
+    if(!window.Pi){
+      setStatus('❌ Pi SDK not found. Open IN Pi Browser.');
+      log('Pi SDK not found');
+      return;
+    }
+    try{
+      Pi.init({version:'2.0', sandbox:true}); // Testnet = true
+      setStatus('✅ Pi SDK ready. Please Login first.');
+      log('Pi.init done (sandbox:true)');
+    }catch(e){
+      setStatus('Pi.init error');
+      log('Pi.init error', {name:e?.name, code:e?.code, message:e?.message});
     }
   }
 
-  // откроем функции для кнопок с onclick="..."
-  window.login = login;
-  
-  window.pay = pay;
+  // Старт — чуть откладываем, чтобы гарантированно дождаться вставки SDK
+  if(document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', ()=> setTimeout(init, 50));
+  }else{
+    setTimeout(init, 50);
+  }
+})();
 </script>
 </body>
 </html>
