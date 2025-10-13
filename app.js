@@ -1,94 +1,70 @@
-// Мягкие логи: никогда не падают, даже если нет #log/#status
-const getEl = id => document.getElementById(id);
-function log(...a){
-  try {
-    const el = getEl('log');
-    const msg = a.map(x => (typeof x === 'string' ? x : JSON.stringify(x, null, 2))).join(' ');
-    if (el) el.textContent += msg + '\n';
-    console.log('[LOG]', ...a);
-  } catch(_) { /* ignore */ }
-}
-function setStatus(s){
-  try {
-    const el = getEl('status');
-    if (el) el.textContent = s;
-  } catch(_) {}
-}
-
-// Покажем любые непойманные ошибки в UI
-window.addEventListener('error', e => {
-  log('❌ window.onerror:', e?.message || e);
-  setStatus('Error: ' + (e?.message || 'unknown'));
-});
-window.addEventListener('unhandledrejection', e => {
-  log('❌ Unhandled rejection:', e?.reason || e);
-  setStatus('Promise error: ' + (e?.reason?.message  e?.reason  'unknown'));
-});
-
-// Гарантируем запуск ПОСЛЕ построения DOM
-document.addEventListener('DOMContentLoaded', () => {
-  log('app.js loaded ✅');
-  setStatus('Booting…');
-
-  const btnLogin = getEl('btnLogin');
-  const btnPay   = getEl('btnPay');
-
-  // Диагностика кликов
-  if (btnLogin) btnLogin.addEventListener('click', () => log('Login button clicked'));
-  if (btnPay)   btnPay.addEventListener('click',   () => log('Pay button clicked'));
-
-  // Поддержка Pi SDK
-  if (!window.Pi) {
-    setStatus('❌ Pi SDK not found (open in Pi Browser).');
-    return; // дальше смысла нет
+// --- helpers ---
+function $(id){ return document.getElementById(id); }
+function log(){
+  var out = $('log');
+  var parts = [];
+  for (var i=0;i<arguments.length;i++){
+    try { parts.push(typeof arguments[i] === 'string' ? arguments[i] : JSON.stringify(arguments[i])); }
+    catch(_){ parts.push(String(arguments[i])); }
   }
+  out.textContent += parts.join(' ') + "\n";
+}
+function setStatus(t){ $('status').textContent = t; }
 
-  try {
-    // TESTNET/SANDBOX — для проверки
-    Pi.init({ version: '2.0', sandbox: true });
-    log('✅ Pi.init OK (sandbox:true).');
-    setStatus('SDK ready. Please login.');
-  } catch (e) {
-    log('❌ Pi.init error', { message: e?.message, code: e?.code });
-    setStatus('Pi.init failed.');
+// --- boot marker (покажет, что скрипт действительно исполнился) ---
+(function(){
+  log('app.js loaded');
+  setStatus('Booting…');
+})();
+
+// --- основная логика ---
+window.addEventListener('DOMContentLoaded', function(){
+  var btnLogin = $('btnLogin');
+  var btnPay   = $('btnPay');
+
+  // клики точно живые?
+  btnLogin.addEventListener('click', function(){ log('Login button clicked'); });
+  btnPay.addEventListener('click',   function(){ log('Pay button clicked'); });
+
+  // Проверка наличия Pi SDK
+  if (!window.Pi) {
+    setStatus('❌ Pi SDK not found (open this page in Pi Browser).');
     return;
   }
 
-  // ЛОГИН
-  if (btnLogin) btnLogin.addEventListener('click', async () => {
-    setStatus('Logging in…');
+  // Инициализация SDK (TESTNET/SANDBOX)
+  try {
+    Pi.init({ version: '2.0', sandbox: true }); // ← если нужно mainnet, поставьте false
+    setStatus('SDK ready (sandbox:true). Please login.');
+  } catch(e) {
+    setStatus('Pi.init error: ' + (e && e.message ? e.message : 'unknown'));
+    log('Pi.init error', { name: e && e.name, message: e && e.message, code: e && e.code });
+    return;
+  }
+
+  // Логин
+  btnLogin.addEventListener('click', function(){
+    setStatus('Authorizing…');
     try {
-      const scopes = ['username', 'payments'];
-      const auth = await Pi.authenticate(scopes, p => log('onIncompletePaymentFound', p));
-      log('AUTH OK ✅', auth);
-      setStatus('Logged in as @' + (auth?.user?.username || 'unknown'));
-      if (btnPay) btnPay.disabled = false;
-    } catch (e) {
-      log('AUTH ERROR ❌', { name: e?.name, message: e?.message, code: e?.code });
-      setStatus('Login failed: ' + (e?.code  e?.message  'unknown'));
+      var scopes = ['username','payments'];
+      Pi.authenticate(scopes, function(p){ log('onIncompletePaymentFound', p); })
+        .then(function(auth){
+          log('AUTH OK', auth);
+          setStatus('Logged in as @' + (auth && auth.user && auth.user.username ? auth.user.username : 'unknown'));
+          btnPay.disabled = false;
+        })
+        .catch(function(e){
+          log('AUTH ERROR', { name: e && e.name, message: e && e.message, code: e && e.code });
+          setStatus('Login failed: ' + (e && (e.code  e.message) ? (e.code  e.message) : 'unknown'));
+        });
+    } catch(e){
+      log('AUTH THROW', e);
+      setStatus('Login failed (throw): ' + (e && e.message ? e.message : 'unknown'));
     }
   });
 
-  // ОПЛАТА (без серверных вызовов; только чтобы кнопка кликалась)
-  if (btnPay) btnPay.addEventListener('click', async () => {
-    try {
-      // Если увидишь ошибку «Cannot create a payment without "payments" scope»
-      // это значит, что логин не прошёл. Сначала нажми Login.
-      const payment = await Pi.createPayment({
-        amount: 0.001,
-        memo: 'Test payment',
-        metadata: { t: Date.now() }
-      }, {
-        onReadyForServerApproval: id => log('onReadyForServerApproval', id),
-        onReadyForServerCompletion: (id, txid) => log('onReadyForServerCompletion', id, txid),
-        onCancel: id => log('onCancel', id),
-        onError: (err, id) => log('onError', { id, err })
-      });
-      log('createPayment() returned', payment);
-      setStatus('Payment flow started (test).');
-    } catch (e) {
-      log('Payment error', { message: e?.message, code: e?.code });
-      setStatus('Payment failed: ' + (e?.code  e?.message  'unknown'));
-    }
+  // Платеж (только чтобы проверить реакцию кнопки)
+  btnPay.addEventListener('click', function(){
+    setStatus('Payment flow disabled in debug build. (Кнопка кликается ✅)');
   });
 });
