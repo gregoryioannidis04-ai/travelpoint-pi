@@ -55,7 +55,7 @@ window.addEventListener('DOMContentLoaded', function(){
         })
         .catch(function(e){
           log('AUTH ERROR', { name: e && e.name, message: e && e.message, code: e && e.code });
-          setStatus('Login failed: ' + (e && (e.code  e.message) ? (e.code  e.message) : 'unknown'));
+          setStatus('Login failed: ' + (e && (e.code || e.message) ? (e.code || e.message) : 'unknown'));
         });
     } catch(e){
       log('AUTH THROW', e);
