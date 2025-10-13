@@ -3,30 +3,29 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>TravelPoint Pi</title>
-
-  <!-- Pi SDK с домена minepi (его CSP обычно разрешает) -->
-  <script src="https://sdk.minepi.com/pi-sdk.js" defer></script>
-
-  <!-- Наш код только как внешний файл -->
-  <script src="/app.js" defer></script>
-
+  <title>TravelPoint Pi — Minimal Check</title>
+  <script src="https://sdk.minepi.com/pi-sdk.js"></script>
   <style>
-    body{font:16px system-ui,Arial;padding:24px}
-    h1{margin:0 0 8px}
-    p{color:#444}
-    button{padding:12px 18px;border:1px solid #ccc;border-radius:10px;margin:10px 0}
-    #status{margin-top:14px;color:#555}
+    body{font-family:system-ui,Arial,sans-serif;max-width:680px;margin:24px auto;padding:0 16px}
+    h1{font-size:28px;margin:8px 0 16px}
+    button{font-size:16px;padding:12px 18px;border:1px solid #ccc;border-radius:12px;cursor:pointer;margin:8px 8px 8px 0}
+    #status{margin:12px 0;padding:10px 12px;border:1px dashed #bbb;border-radius:10px;color:#333;white-space:pre-wrap}
+    #log{min-height:140px;margin-top:8px;padding:10px 12px;border:1px solid #e1e1e1;border-radius:10px;background:#fafafa;white-space:pre-wrap}
   </style>
 </head>
 <body>
   <h1>TravelPoint Pi</h1>
   <p>Open this page in <b>Pi Browser</b> to test the tiny payment flow.</p>
 
-  <button id="btnLogin">🔑 Login with Pi</button><br />
-  <button id="btnPay" disabled>💳 Pay 0.001 Pi (test)</button>
+  <div>
+    <button id="btnLogin">🔑 Login with Pi</button>
+    <button id="btnPay" disabled>💳 Pay 0.001 Pi (test)</button>
+  </div>
 
   <div id="status">Booting…</div>
-  <pre id="log" style="background:#f6f7f9;padding:12px;border-radius:10px;white-space:pre-wrap;min-height:60px;margin-top:10px"></pre>
+  <pre id="log"></pre>
+
+  <!-- ВАЖНО: defer, чтобы скрипт запускался ПОСЛЕ построения DOM -->
+  <script src="./app.js" defer></script>
 </body>
 </html>
