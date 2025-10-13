@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Pi SDK Check</title>
+<script src="https://sdk.minepi.com/pi-sdk.js"></script>
+<style>
+  body { font-family: system-ui, Arial; padding: 24px; text-align:center; }
+  #out { white-space: pre-wrap; text-align:left; max-width:600px; margin:20px auto; border:1px solid #ccc; border-radius:10px; padding:12px; }
+  button { padding:10px 16px; border-radius:8px; margin:6px; font-size:16px; }
+</style>
+</head>
+<body>
+<h2>Pi SDK Debug</h2>
+<p>Open this page <b>inside Pi Browser</b>.</p>
+<button id="btnCheck">Check SDK</button>
+<div id="out"></div>
+
+<script>
+document.getElementById('btnCheck').onclick = function(){
+  const out = document.getElementById('out');
+  function log(msg){ out.textContent += msg + "\n"; }
+  log("Checking...");
+  if(!window.Pi){
+    log("❌ window.Pi is undefined");
+    log("⚠️ SDK not loaded. Possible causes:");
+    log("1) Page not opened in Pi Browser");
+    log("2) Cache/CDN glitch — try adding ?v=8 to URL");
+    log("3) Pi SDK server temporarily unavailable");
+  } else {
+    log("✅ Pi SDK found: " + typeof Pi.init);
+    try {
+      Pi.init({version:'2.0', sandbox:true});
+      log("✅ Pi.init executed (sandbox mode)");
+    } catch(e){
+      log("❌ Pi.init error: " + (e.message || e));
+    }
+  }
+};
+</script>
+</body>
+</html>
