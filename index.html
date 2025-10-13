@@ -2,114 +2,31 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>TravelPoint Pi — Minimal Check</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>TravelPoint Pi</title>
+
+  <!-- Pi SDK с домена minepi (его CSP обычно разрешает) -->
+  <script src="https://sdk.minepi.com/pi-sdk.js" defer></script>
+
+  <!-- Наш код только как внешний файл -->
+  <script src="/app.js" defer></script>
+
   <style>
-    body{font-family:system-ui, Arial, sans-serif; padding:24px; max-width:720px; margin:0 auto;}
-    h1{margin:0 0 6px}
-    .row{display:flex; gap:12px; flex-wrap:wrap; margin:16px 0}
-    button{padding:12px 16px; border:1px solid #ccc; border-radius:10px; cursor:pointer; font-size:16px}
-    .ok{color:#0a0}
-    .bad{color:#c00}
-    #log{white-space:pre-wrap; border:1px dashed #ccc; border-radius:10px; padding:12px; min-height:90px}
-    .muted{color:#666; font-size:13px}
+    body{font:16px system-ui,Arial;padding:24px}
+    h1{margin:0 0 8px}
+    p{color:#444}
+    button{padding:12px 18px;border:1px solid #ccc;border-radius:10px;margin:10px 0}
+    #status{margin-top:14px;color:#555}
   </style>
-  <!-- ВАЖНО: версия, чтобы видеть, что деплой обновился -->
-  <meta name="build-version" content="v-2025-10-11-20-55" />
 </head>
 <body>
-  <h1>TravelPoint Pi — Minimal Check</h1>
-  <div class="muted">Build: <span id="ver"></span> • UA has “PiBrowser”: <span id="ua"></span></div>
+  <h1>TravelPoint Pi</h1>
+  <p>Open this page in <b>Pi Browser</b> to test the tiny payment flow.</p>
 
-  <div class="row">
-    <button id="btnClick">① Test Click</button>
-    <button id="btnLoad">② Load & Init SDK (sandbox)</button>
-    <button id="btnLogin">③ Login (username+payments)</button>
-  </div>
+  <button id="btnLogin">🔑 Login with Pi</button><br />
+  <button id="btnPay" disabled>💳 Pay 0.001 Pi (test)</button>
 
   <div id="status">Booting…</div>
-  <div id="log" aria-label="Logs"></div>
-
-  <!-- Подключаем SDK последним; дадим явный таймаут и диагностику -->
-  <script>
-    const $ = id => document.getElementById(id);
-    const log = (m, o) => {
-      const t = typeof m === 'string' ? m : JSON.stringify(m);
-      $('log').textContent += t + (o ? ' ' + JSON.stringify(o) : '') + '\n';
-    };
-    const set = (cls, txt) => { const el=$('status'); el.className=cls; el.textContent=txt; };
-
-    // Показать версию и “я внутри Pi Browser?”
-    (function bootMeta(){
-      const meta = document.querySelector('meta[name="build-version"]')?.content || 'no-meta';
-      $('ver').textContent = meta;
-      $('ua').textContent = String(navigator.userAgent.includes('PiBrowser'));
-    })();
-
-    // ① Клик живой?
-    $('btnClick').addEventListener('click', ()=>{
-      alert('Click OK ✅');
-      log('click ok');
-    });
-
-    // ② Явная подгрузка/инициализация SDK
-    $('btnLoad').addEventListener('click', async ()=>{
-      try {
-        set('', 'Loading SDK…');
-        if (!window.Pi) {
-          log('Pi not present yet, creating <script>…');
-        }
-        // если вдруг скрипт уже есть — не добавляем второй раз
-        if (!document.querySelector('script[data-pi="sdk"]')) {
-          const s = document.createElement('script');
-          s.src = 'https://sdk.minepi.com/pi-sdk.js';
-          s.async = true;
-          s.setAttribute('data-pi','sdk');
-          s.onload = onSdkReady;
-          s.onerror = ()=>{ set('bad','❌ SDK load error'); log('sdk load error'); };
-          document.body.appendChild(s);
-        } else {
-          onSdkReady();
-        }
-      } catch(e){
-        set('bad','❌ Load exception');
-        log('load exception', {msg:e?.message, stack:e?.stack});
-      }
-    });
-
-    async function onSdkReady(){
-      try{
-        if (!window.Pi) { set('bad','❌ SDK object missing'); log('no window.Pi'); return; }
-        log('SDK present: ' + typeof window.Pi);
-        // Testnet!
-        Pi.init({ version: '2.0', sandbox: true });
-        set('ok','✅ SDK initialized (sandbox:true)');
-        log('Pi.init done');
-      }catch(e){
-        set('bad','❌ Pi.init error');
-        log('Pi.init error', {msg:e?.message, code:e?.code});
-      }
-    }
-
-    // ③ Логин с нужными скоупами
-    $('btnLogin').addEventListener('click', async ()=>{
-      if (!window.Pi) { set('bad','❌ No SDK, press “② Load & Init”'); return; }
-      set('', 'Authorizing…');
-      try{
-        const scopes = ['username','payments']; // ВАЖНО: есть “payments”
-        const auth = await Pi.authenticate(scopes, (p)=>log('onIncompletePaymentFound',p))
-        set('ok', '✅ Auth: @' + (auth?.user?.username || 'unknown'));
-        log('auth ok', auth);
-      }catch(e){
-        set('bad','❌ Auth error');
-        log('auth error', {name:e?.name, code:e?.code, msg:e?.message});
-        alert('Auth error: ' + (e?.code  e?.message  'unknown'));
-      }
-    });
-
-    // Подстраховка: глобальный перехват ошибок — чтобы понять, если что-то “ломается молча”
-    window.addEventListener('error', ev => log('window.error', {msg: ev?.message}));
-    window.addEventListener('unhandledrejection', ev => log('unhandledrejection', {reason: String(ev?.reason)}));
-  </script>
+  <pre id="log" style="background:#f6f7f9;padding:12px;border-radius:10px;white-space:pre-wrap;min-height:60px;margin-top:10px"></pre>
 </body>
 </html>
