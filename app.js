@@ -55,7 +55,7 @@ window.addEventListener('DOMContentLoaded', () => {
       timedOut = true;
       setStatus('Auth timed out (no response from SDK in 15s)');
       log('AUTH TIMEOUT: no response within 15s');
-    }, 15000);
+    }, 60000);
 
     try {
       const scopes = ['username', 'payments'];
