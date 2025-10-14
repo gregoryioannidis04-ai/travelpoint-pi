@@ -75,9 +75,52 @@ window.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  // Платёж (пока только кликабельность)
-  btnPay.addEventListener('click', () => {
-    setStatus('Payment flow is disabled in this demo.');
-    log('Pay clicked (demo only)');
-  });
+btnPay.addEventListener('click', async () => {
+  setStatus('Starting payment…');
+
+  // Рекомендуется пока тестировать в песочнице:
+  // Если хотите тратить «виртуальный» Pi, ИНИЦИАЛИЗИРУЙТЕ SDK ТАК:
+  // Pi.init({ version: '2.0', sandbox: true });
+
+  try {
+    const paymentData = {
+      amount: 0.001,
+      memo: 'TravelPoint test payment',
+      metadata: { source: 'demo' },
+    };
+
+    const callbacks = {
+      onReadyForServerApproval: async (paymentId) => {
+        log('onReadyForServerApproval', paymentId);
+        await fetch('/api/approve', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ paymentId }),
+        });
+      },
+      onReadyForServerCompletion: async (paymentId, txid) => {
+        log('onReadyForServerCompletion', { paymentId, txid });
+        await fetch('/api/complete', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ paymentId, txid }),
+        });
+      },
+      onCancel: (e) => {
+        log('onCancel', e);
+        setStatus('Payment cancelled');
+      },
+      onError: (e) => {
+        log('onError', { name: e?.name, code: e?.code, message: e?.message });
+        setStatus('Payment error');
+      },
+    };
+
+    const result = await Pi.createPayment(paymentData, callbacks);
+    log('Payment result', result);
+    setStatus('Payment flow finished');
+  } catch (e) {
+    log('createPayment error', e);
+    setStatus('Payment start failed');
+  }
 });
