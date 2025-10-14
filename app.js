@@ -1,3 +1,16 @@
+// --- ultra-диагностика, самый верх app.js ---
+try {
+  const s = document.getElementById('status');
+  if (s) s.textContent = 'JS ALIVE (from top of app.js)';
+  const out = document.getElementById('log');
+  if (out) {
+    out.textContent = 'JS sees #log element\nUA: ' + navigator.userAgent;
+  } else {
+    document.body.insertAdjacentHTML('beforeend', '<pre style="padding:8px">No #log element on page</pre>');
+  }
+} catch(e) {
+  document.body.insertAdjacentHTML('beforeend', '<pre style="padding:8px">TOP-LEVEL JS ERROR: ' + (e && e.message) + '</pre>');
+}
 // ===== helpers =====
 const $ = (id) => document.getElementById(id);
 const log = (...a) => {
