@@ -50,12 +50,15 @@ window.addEventListener('DOMContentLoaded', () => {
     log('location.host:', location.host);
     log('typeof Pi.authenticate:', typeof Pi.authenticate);
 
-    let timedOut = false;
-    const t = setTimeout(() => {
-      timedOut = true;
-      setStatus('Auth timed out (no response from SDK in 15s)');
-      log('AUTH TIMEOUT: no response within 15s');
-    }, 60000);
+    const AUTH_TIMEOUT_MS = 60000; // 60 секунд — можно изменить при необходимости
+
+let timedOut = false;
+const t = setTimeout(() => {
+  timedOut = true;
+  const secs = Math.round(AUTH_TIMEOUT_MS / 1000);
+  setStatus(Auth timed out (no response from SDK in ${secs}s));
+  log(AUTH TIMEOUT: no response within ${secs}s);
+}, AUTH_TIMEOUT_MS);
 
     try {
       const scopes = ['username', 'payments'];
